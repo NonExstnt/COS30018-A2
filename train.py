@@ -25,7 +25,7 @@ def train_model(model, X_train, y_train, name, config):
         config: Dict, parameter for train.
     """
 
-    model.compile(loss="mse", optimizer="rmsprop", metrics=['mape'])
+    model.compile(loss="mean_squared_error", optimizer="rmsprop", metrics=['mape'])
     # early = EarlyStopping(monitor='val_loss', patience=30, verbose=0, mode='auto')
     hist = model.fit(
         X_train, y_train,
@@ -61,7 +61,7 @@ def train_seas(models, X_train, y_train, name, config):
             temp = hidden_layer_model.predict(temp)
 
         m = models[i]
-        m.compile(loss="mse", optimizer="rmsprop", metrics=['mape'])
+        m.compile(loss="mean_squared_error", optimizer="rmsprop", metrics=['mape'])
 
         m.fit(temp, y_train, batch_size=config["batch"],
               epochs=config["epochs"],
@@ -79,17 +79,20 @@ def train_seas(models, X_train, y_train, name, config):
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model",
-        default="lstm",
-        help="Model to train.")
+    parser.add_argument("--model", default="lstm", help="Model to train.")
+    parser.add_argument("--lane", default=1, type=int, help="Lane to use.")
     args = parser.parse_args()
 
     lag = 12
-    config = {"batch": 256, "epochs": 100}
-    file1 = 'data/train.csv'
-    file2 = 'data/test.csv'
-    X_train, y_train, _, _, _ = process_data(file1, file2, lag)
+    config = {"batch": 256, "epochs": 30}
+    # Prompt for scat number
+    scat_number = input("Enter scat number: ").strip()
+    
+    # Set parameters
+    lag = 12
+    file1 = f"data/Scat_number_{scat_number}_train.csv"
+    file2 = f"data/Scat_number_{scat_number}_test.csv"
+    X_train, y_train, _, _, _ = process_data(file1, file2, lag, args.lane)
 
     if args.model == 'lstm':
         X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))

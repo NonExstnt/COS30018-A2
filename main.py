@@ -1,54 +1,29 @@
-"""
-Traffic Flow Prediction with Neural Networks(SAEs、LSTM、GRU).
-"""
 import math
 import warnings
 import numpy as np
 import pandas as pd
 from data.data import process_data
 from keras.models import load_model
-from keras.utils import plot_model
+from tensorflow.keras.utils import plot_model
 import sklearn.metrics as metrics
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 warnings.filterwarnings("ignore")
 
-
 def MAPE(y_true, y_pred):
-    """Mean Absolute Percentage Error
-    Calculate the mape.
-
-    # Arguments
-        y_true: List/ndarray, ture data.
-        y_pred: List/ndarray, predicted data.
-    # Returns
-        mape: Double, result data for train.
-    """
-
+    """Mean Absolute Percentage Error"""
     y = [x for x in y_true if x > 0]
     y_pred = [y_pred[i] for i in range(len(y_true)) if y_true[i] > 0]
-
     num = len(y_pred)
     sums = 0
-
     for i in range(num):
         tmp = abs(y[i] - y_pred[i]) / y[i]
         sums += tmp
-
     mape = sums * (100 / num)
-
     return mape
 
-
 def eva_regress(y_true, y_pred):
-    """Evaluation
-    evaluate the predicted resul.
-
-    # Arguments
-        y_true: List/ndarray, ture data.
-        y_pred: List/ndarray, predicted data.
-    """
-
+    """Evaluation"""
     mape = MAPE(y_true, y_pred)
     vs = metrics.explained_variance_score(y_true, y_pred)
     mae = metrics.mean_absolute_error(y_true, y_pred)
@@ -61,22 +36,13 @@ def eva_regress(y_true, y_pred):
     print('rmse:%f' % math.sqrt(mse))
     print('r2:%f' % r2)
 
-
 def plot_results(y_true, y_preds, names):
-    """Plot
-    Plot the true data and predicted data.
-
-    # Arguments
-        y_true: List/ndarray, ture data.
-        y_pred: List/ndarray, predicted data.
-        names: List, Method names.
-    """
-    d = '2016-3-4 00:00'
-    x = pd.date_range(d, periods=288, freq='5min')
+    """Plot results"""
+    d = '10/1/2006 00:00'
+    x = pd.date_range(d, periods=96, freq='15min')
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-
     ax.plot(x, y_true, label='True Data')
     for name, y_pred in zip(names, y_preds):
         ax.plot(x, y_pred, label=name)
@@ -84,26 +50,33 @@ def plot_results(y_true, y_preds, names):
     plt.legend()
     plt.grid(True)
     plt.xlabel('Time of Day')
-    plt.ylabel('Flow')
-
+    plt.ylabel('Vehicle Count')
     date_format = mpl.dates.DateFormatter("%H:%M")
     ax.xaxis.set_major_formatter(date_format)
     fig.autofmt_xdate()
-
     plt.show()
 
-
 def main():
+    # Load models
     lstm = load_model('model/lstm.h5')
     gru = load_model('model/gru.h5')
     saes = load_model('model/saes.h5')
     models = [lstm, gru, saes]
     names = ['LSTM', 'GRU', 'SAEs']
 
+    # Prompt for scat number
+    scat_number = input("Enter scat number: ").strip()
+    
+    # Set parameters
     lag = 12
-    file1 = 'data/train.csv'
-    file2 = 'data/test.csv'
-    _, _, X_test, y_test, scaler = process_data(file1, file2, lag)
+    file1 = f"data/Scat_number_{scat_number}_train.csv"
+    file2 = f"data/Scat_number_{scat_number}_test.csv"
+
+    # Ask the user for lane number
+    lane = int(input("Enter lane number (e.g., 1, 3, 5, 7): "))
+
+    # Process data for the selected lane
+    _, _, X_test, y_test, scaler = process_data(file1, file2, lag, lane)
     y_test = scaler.inverse_transform(y_test.reshape(-1, 1)).reshape(1, -1)[0]
 
     y_preds = []
@@ -116,12 +89,11 @@ def main():
         plot_model(model, to_file=file, show_shapes=True)
         predicted = model.predict(X_test)
         predicted = scaler.inverse_transform(predicted.reshape(-1, 1)).reshape(1, -1)[0]
-        y_preds.append(predicted[:288])
+        y_preds.append(predicted[:96])
         print(name)
         eva_regress(y_test, predicted)
 
-    plot_results(y_test[: 288], y_preds, names)
-
+    plot_results(y_test[:96], y_preds, names)
 
 if __name__ == '__main__':
     main()
