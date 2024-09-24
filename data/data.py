@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
-def process_data(Scat_number_970_train, Scat_number_970_test, lags, lane):
+def process_data(file1, file2, lags, lane):
     """Process data
     Reshape and split train\test data based on the lane (Location).
 
@@ -21,8 +21,8 @@ def process_data(Scat_number_970_train, Scat_number_970_test, lags, lane):
     attr = 'Vehicle Count'
     
     # Read the data and filter by the given lane (Location)
-    df1 = pd.read_csv(Scat_number_970_train, encoding='utf-8').fillna(0)
-    df2 = pd.read_csv(Scat_number_970_test, encoding='utf-8').fillna(0)
+    df1 = pd.read_csv(file1, encoding='utf-8').fillna(0)
+    df2 = pd.read_csv(file2, encoding='utf-8').fillna(0)
     
     df1 = df1[df1['VR Internal Loc'] == lane]
     df2 = df2[df2['VR Internal Loc'] == lane]
@@ -33,19 +33,19 @@ def process_data(Scat_number_970_train, Scat_number_970_test, lags, lane):
     flow2 = scaler.transform(df2[attr].values.reshape(-1, 1)).reshape(1, -1)[0]
 
     # Create time-lagged sequences
-    Scat_number_970_train, Scat_number_970_test = [], []
+    file1, file2 = [], []
     for i in range(lags, len(flow1)):
-        Scat_number_970_train.append(flow1[i - lags: i + 1])
+        file1.append(flow1[i - lags: i + 1])
     for i in range(lags, len(flow2)):
-        Scat_number_970_test.append(flow2[i - lags: i + 1])
+        file2.append(flow2[i - lags: i + 1])
 
-    Scat_number_970_train = np.array(Scat_number_970_train)
-    Scat_number_970_test = np.array(Scat_number_970_test)
-    np.random.shuffle(Scat_number_970_train)
+    file1 = np.array(file1)
+    file2 = np.array(file2)
+    np.random.shuffle(file1)
 
-    X_train = Scat_number_970_train[:, :-1]
-    y_train = Scat_number_970_train[:, -1]
-    X_test = Scat_number_970_test[:, :-1]
-    y_test = Scat_number_970_test[:, -1]
+    X_train = file1[:, :-1]
+    y_train = file1[:, -1]
+    X_test = file2[:, :-1]
+    y_test = file2[:, -1]
 
     return X_train, y_train, X_test, y_test, scaler

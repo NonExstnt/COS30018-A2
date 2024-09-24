@@ -84,7 +84,7 @@ def main(argv):
     args = parser.parse_args()
 
     lag = 12
-    config = {"batch": 256, "epochs": 30}
+    config = {"batch": 256, "epochs": 600}
     # Prompt for scat number
     scat_number = input("Enter scat number: ").strip()
     
