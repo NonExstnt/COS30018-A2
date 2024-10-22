@@ -57,23 +57,24 @@ def plot_results(y_true, y_preds, names):
     plt.show()
 
 def main():
-    # Load models
-    lstm = load_model('model/lstm.h5')
-    gru = load_model('model/gru.h5')
-    saes = load_model('model/saes.h5')
-    models = [lstm, gru, saes]
-    names = ['LSTM', 'GRU', 'SAEs']
 
     # Prompt for scat number
     scat_number = input("Enter scat number: ").strip()
+
+    # Ask the user for lane number
+    lane = int(input("Enter lane number (e.g., 1 - 8): "))
+
+    # Load models
+    lstm = load_model(f'model/lstm/{scat_number}/{lane}.h5')
+    gru = load_model(f'model/gru/{scat_number}/{lane}.h5')
+    saes = load_model(f'model/saes/{scat_number}/{lane}.h5')
+    models = [lstm, gru, saes]
+    names = ['LSTM', 'GRU', 'SAEs']
     
     # Set parameters
     lag = 12
     file1 = f"data/Scat_number_{scat_number}_train.csv"
     file2 = f"data/Scat_number_{scat_number}_test.csv"
-
-    # Ask the user for lane number
-    lane = int(input("Enter lane number (e.g., 1, 3, 5, 7): "))
 
     # Process data for the selected lane
     _, _, X_test, y_test, scaler = process_data(file1, file2, lag, lane)
