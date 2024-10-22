@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from data.data import process_data
 from keras.models import load_model
-from tensorflow.keras.utils import plot_model
+from keras.utils import plot_model
 import sklearn.metrics as metrics
 import matplotlib as mpl
 import matplotlib.pyplot as plt
