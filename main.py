@@ -11,7 +11,15 @@ import matplotlib.pyplot as plt
 warnings.filterwarnings("ignore")
 
 def MAPE(y_true, y_pred):
-    """Mean Absolute Percentage Error"""
+    """Mean Absolute Percentage Error
+    Calculate the mape.
+
+    # Arguments
+        y_true: List/ndarray, ture data.
+        y_pred: List/ndarray, predicted data.
+    # Returns
+        mape: Double, result data for train.
+    """
     y = [x for x in y_true if x > 0]
     y_pred = [y_pred[i] for i in range(len(y_true)) if y_true[i] > 0]
     num = len(y_pred)
@@ -23,7 +31,13 @@ def MAPE(y_true, y_pred):
     return mape
 
 def eva_regress(y_true, y_pred):
-    """Evaluation"""
+    """Evaluation
+    evaluate the predicted resul.
+
+    # Arguments
+        y_true: List/ndarray, ture data.
+        y_pred: List/ndarray, predicted data.
+    """
     mape = MAPE(y_true, y_pred)
     vs = metrics.explained_variance_score(y_true, y_pred)
     mae = metrics.mean_absolute_error(y_true, y_pred)
@@ -37,12 +51,20 @@ def eva_regress(y_true, y_pred):
     print('r2:%f' % r2)
 
 def plot_results(y_true, y_preds, names):
-    """Plot results"""
+    """Plot
+    Plot the true data and predicted data.
+
+    # Arguments
+        y_true: List/ndarray, ture data.
+        y_pred: List/ndarray, predicted data.
+        names: List, Method names.
+    """
     d = '10/1/2006 00:00'
     x = pd.date_range(d, periods=96, freq='15min')
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
+
     ax.plot(x, y_true, label='True Data')
     for name, y_pred in zip(names, y_preds):
         ax.plot(x, y_pred, label=name)
@@ -51,9 +73,11 @@ def plot_results(y_true, y_preds, names):
     plt.grid(True)
     plt.xlabel('Time of Day')
     plt.ylabel('Vehicle Count')
+
     date_format = mpl.dates.DateFormatter("%H:%M")
     ax.xaxis.set_major_formatter(date_format)
     fig.autofmt_xdate()
+
     plt.show()
 
 def main():
@@ -68,8 +92,9 @@ def main():
     lstm = load_model(f'model/lstm/{scat_number}/{lane}.h5')
     gru = load_model(f'model/gru/{scat_number}/{lane}.h5')
     saes = load_model(f'model/saes/{scat_number}/{lane}.h5')
-    models = [lstm, gru, saes]
-    names = ['LSTM', 'GRU', 'SAEs']
+    rnn = load_model(f'model/rnn/{scat_number}/{lane}.h5')
+    models = [lstm, gru, saes, rnn]
+    names = ['LSTM', 'GRU', 'SAEs', 'RNN']
     
     # Set parameters
     lag = 12
