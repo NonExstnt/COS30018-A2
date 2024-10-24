@@ -11,7 +11,6 @@ def run_main():
     
     try:
         subprocess.run(command, check=True, shell=True)
-        messagebox.showinfo("Success", "Prediction shown successfully!")
     except subprocess.CalledProcessError as e:
         messagebox.showerror("Error", f"An error occurred: {e}")
 
