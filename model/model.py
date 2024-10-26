@@ -1,7 +1,7 @@
 """
 Defination of NN model
 """
-from keras.layers import Dense, Dropout, Activation, LSTM, GRU
+from keras.layers import Dense, Dropout, LSTM, GRU, SimpleRNN
 from keras.models import Sequential
 
 
@@ -43,50 +43,61 @@ def get_gru(units):
     return model
 
 
-def _get_sae(inputs, hidden, output):
+def get_ae(x_train, input_output, hidden_sizes, last_ae): #num_hidden later
     """SAE(Auto-Encoders)
     Build SAE Model.
 
     # Arguments
+        input_dim: Integer, number of predictor variables.
         inputs: Integer, number of input units.
         hidden: Integer, number of hidden units.
-        output: Integer, number of output units.
+        num_hidden: Integer, number of hidden layers.
     # Returns
         model: Model, nn model.
     """
+    input_dim = x_train[0].shape[0]
 
     model = Sequential()
-    model.add(Dense(hidden, input_dim=inputs, name='hidden'))
-    model.add(Activation('sigmoid'))
-    model.add(Dropout(0.2))
-    model.add(Dense(output, activation='sigmoid'))
+
+    # Input Layer
+    model.add(Dense(input_output, input_dim=input_dim, activation="relu", name="input"))
+
+    # Hidden layers (sequential reduction)
+    for i, size in enumerate(hidden_sizes):
+        model.add(Dense(size, activation="relu", name=f"hidden_{i+1}"))
+
+    # Output Layer
+    if last_ae:
+        model.add(Dense(1, activation="sigmoid", name="output"))
+    else:
+        model.add(Dense(input_output, activation="sigmoid", name="output"))
 
     return model
 
 
-def get_saes(layers):
-    """SAEs(Stacked Auto-Encoders)
-    Build SAEs Model.
-
+def get_rnn(units):
+    """SRNN(Simple recurrent neural network)
+    Build SRNN Model.
     # Arguments
-        layers: List(int), number of input, output and hidden units.
+        units: List(int), number of input, output and hidden units.
     # Returns
-        models: List(Model), List of SAE and SAEs.
+        model: Model, nn model.
     """
-    sae1 = _get_sae(layers[0], layers[1], layers[-1])
-    sae2 = _get_sae(layers[1], layers[2], layers[-1])
-    sae3 = _get_sae(layers[2], layers[3], layers[-1])
 
-    saes = Sequential()
-    saes.add(Dense(layers[1], input_dim=layers[0], name='hidden1'))
-    saes.add(Activation('sigmoid'))
-    saes.add(Dense(layers[2], name='hidden2'))
-    saes.add(Activation('sigmoid'))
-    saes.add(Dense(layers[3], name='hidden3'))
-    saes.add(Activation('sigmoid'))
-    saes.add(Dropout(0.2))
-    saes.add(Dense(layers[4], activation='sigmoid'))
+    # Create a Sequential model
+    model = Sequential()
 
-    models = [sae1, sae2, sae3, saes]
+    # Add the first SimpleRNN Layer with unit count based on unit's input param
+    model.add(SimpleRNN(units[1], input_shape=(units[0], 1), return_sequences=True))
 
-    return models
+    # Add the second SimpleRNN Layer with unit count based on unit's input param
+    model.add(SimpleRNN(units[2]))
+
+    # Add a Dropout layer of 0.2
+    model.add(Dropout(0.2))
+
+    # Add the output Layer with unit count based on unit's input parameter
+    model.add(Dense(units[3], activation='sigmoid'))
+
+    # Return the model from function scope
+    return model

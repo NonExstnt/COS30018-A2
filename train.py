@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 from data.data import process_data
 from model import model
-from keras.models import Model
 from keras.callbacks import EarlyStopping
 warnings.filterwarnings("ignore")
 
@@ -25,20 +24,26 @@ def train_model(model, X_train, y_train, name, config, scat_number, lane_number)
         config: Dict, parameter for train.
     """
 
-    model.compile(loss="mean_squared_error", optimizer="rmsprop", metrics=['mape'])
-    # early = EarlyStopping(monitor='val_loss', patience=30, verbose=0, mode='auto')
-    hist = model.fit(
+    if name != 'saes':
+        model.compile(loss="mse", optimizer="rmsprop", metrics=['mape'])
+
+        # early = EarlyStopping(monitor='val_loss', patience=30, verbose=0, mode='auto')
+        hist = model.fit(
         X_train, y_train,
         batch_size=config["batch"],
         epochs=config["epochs"],
         validation_split=0.05)
 
-    model.save(f'model/{name}/{scat_number}/{lane_number}.h5')
-    df = pd.DataFrame.from_dict(hist.history)
-    df.to_csv(f'model/{name}/{scat_number}/{lane_number} loss.csv', encoding='utf-8', index=False)
+        model.save(f'model/{name}/{scat_number}/{lane_number}.h5')
+        df = pd.DataFrame.from_dict(hist.history)
+        df.to_csv(f'model/{name}/{scat_number}/{lane_number} loss.csv', encoding='utf-8', index=False)
+    else:
+        model[0].save(f'model/{name}/{scat_number}/{lane_number}.h5')
+        df = pd.DataFrame.from_dict(model[1].history)
+        df.to_csv(f'model/{name}/{scat_number}/{lane_number} loss.csv', encoding='utf-8', index=False)
 
 
-def train_seas(models, X_train, y_train, name, config, scat_number, lane_number):
+def train_saes(x_train, y_train, name, config, num_ae, hidden_sizes, scat_number, lane_number):
     """train
     train the SAEs model.
 
@@ -50,50 +55,79 @@ def train_seas(models, X_train, y_train, name, config, scat_number, lane_number)
         config: Dict, parameter for train.
     """
 
-    temp = X_train
-    # early = EarlyStopping(monitor='val_loss', patience=30, verbose=0, mode='auto')
+    saes = []
+    last_ae = False
 
-    for i in range(len(models) - 1):
-        if i > 0:
-            p = models[i - 1]
-            hidden_layer_model = Model(p.input,
-                                       p.get_layer('hidden').output)
-            temp = hidden_layer_model.predict(temp)
+    for i in range(num_ae):
+        print(str(i) + ": iterations in train_saes\n")
+        if i == 0: # first iteration uses x_train
+            ae_input = x_train
+            last_ae = False
+            if i == (num_ae - 1): # if first ae is last ae
+                last_ae = True
+        elif i == (num_ae - 1):
+            last_ae = True
+        else:
+            last_ae = False
 
-        m = models[i]
-        m.compile(loss="mean_squared_error", optimizer="rmsprop", metrics=['mape'])
+        ae = model.get_ae(ae_input, 12, hidden_sizes, last_ae)
+        ae.compile(loss="mse", optimizer="adam", metrics=['mape'])
+        ae.fit(ae_input, ae_input, batch_size=config["batch"], 
+                epochs=config["epochs"], validation_split=0.05)
+        stack = ae.fit(ae_input, ae_input, batch_size=config["batch"], 
+                       epochs=config["epochs"], validation_split=0.05)
+        ae_input = ae.predict(ae_input)
 
-        m.fit(temp, y_train, batch_size=config["batch"],
-              epochs=config["epochs"],
-              validation_split=0.05)
+    
+    ae.summary()
 
-        models[i] = m
+    saes.append(ae)
+    saes.append(stack)
 
-    saes = models[-1]
-    for i in range(len(models) - 1):
-        weights = models[i].get_layer('hidden').get_weights()
-        saes.get_layer('hidden%d' % (i + 1)).set_weights(weights)
-
-    train_model(saes, X_train, y_train, name, config, scat_number, lane_number)
+    train_model(saes, x_train, y_train, name, config, scat_number, lane_number)
 
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="lstm", help="Model to train.")
-    parser.add_argument("--lane", default=1, type=int, help="Lane to use.")
+    parser.add_argument(
+        "--model", 
+        default="lstm", 
+        help="Model to train.")
+    parser.add_argument(
+        "--lane", 
+        default=1, 
+        type=int, 
+        help="Lane to use.")
+    parser.add_argument(
+        "--scat", 
+        default=970, 
+        type=int, 
+        help="SCAT site to train.")
+    parser.add_argument(
+        "--aes",
+        default=3,
+        type=int,
+        help="Number of Auto Encoders in the SAE.")
+    parser.add_argument(
+        "--hiddenSizes",
+        type=str,
+        default="32,32",
+        help="Comma-separated list of hidden layer sizes for SAE. Number of values = Number of hidden layers.")
     args = parser.parse_args()
 
     lag = 12
-    config = {"batch": 256, "epochs": 600}
-    # Prompt for scat number
-    scat_number = input("Enter scat number: ").strip()
+    config = {"batch": 256, "epochs": 20}
     
+    lane_no = args.lane
+    scat_number = args.scat
+
     # Set parameters
     lag = 12
     file1 = f"data/Scat_number_{scat_number}_train.csv"
     file2 = f"data/Scat_number_{scat_number}_test.csv"
     X_train, y_train, _, _, _ = process_data(file1, file2, lag, args.lane)
-    lane_no = int(input("Enter lane number (e.g., 1 - 8): "))
+
+    
 
     if args.model == 'lstm':
         X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
@@ -104,9 +138,16 @@ def main(argv):
         m = model.get_gru([12, 64, 64, 1])
         train_model(m, X_train, y_train, args.model, config, scat_number, lane_no)
     if args.model == 'saes':
+        hidden_sizes = list(map(int, args.hiddenSizes.split(',')))
+        num_aes = int(args.aes)
         X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1]))
-        m = model.get_saes([12, 400, 400, 400, 1])
-        train_seas(m, X_train, y_train, args.model, config, scat_number, lane_no)
+        train_saes(X_train, y_train, args.model,
+                    config, num_aes, hidden_sizes,
+                    scat_number, lane_no)
+    if args.model == 'rnn':
+        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+        m = model.get_rnn([12, 64, 64, 1])
+        train_model(m, X_train, y_train, args.model, config, scat_number, lane_no)
 
 
 if __name__ == '__main__':
