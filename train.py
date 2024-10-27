@@ -25,20 +25,28 @@ def train_model(model, X_train, y_train, name, config, scat_number, lane_number)
     """
 
     if name != 'saes':
+        # Compile the model with mean squared error loss and RMSprop optimizer
         model.compile(loss="mse", optimizer="rmsprop", metrics=['mape'])
 
-        # early = EarlyStopping(monitor='val_loss', patience=30, verbose=0, mode='auto')
+        # Train the model with early stopping (commented out) and validation split
         hist = model.fit(
-        X_train, y_train,
-        batch_size=config["batch"],
-        epochs=config["epochs"],
-        validation_split=0.05)
+            X_train, y_train,
+            batch_size=config["batch"],
+            epochs=config["epochs"],
+            validation_split=0.05
+        )
 
+        # Save the trained model to a file
         model.save(f'model/{name}/{scat_number}/{lane_number}.h5')
+
+        # Save the training history to a CSV file
         df = pd.DataFrame.from_dict(hist.history)
         df.to_csv(f'model/{name}/{scat_number}/{lane_number} loss.csv', encoding='utf-8', index=False)
     else:
+        # Save the first model in the list (for 'saes')
         model[0].save(f'model/{name}/{scat_number}/{lane_number}.h5')
+
+        # Save the training history of the second model in the list to a CSV file
         df = pd.DataFrame.from_dict(model[1].history)
         df.to_csv(f'model/{name}/{scat_number}/{lane_number} loss.csv', encoding='utf-8', index=False)
 
@@ -55,36 +63,36 @@ def train_saes(x_train, y_train, name, config, num_ae, hidden_sizes, scat_number
         config: Dict, parameter for train.
     """
 
-    saes = []
-    last_ae = False
+    saes = []  # List to store the last autoencoder and it's training history
+    last_ae = False  # Flag to indicate if the current autoencoder is the last one
 
     for i in range(num_ae):
         print(str(i) + ": iterations in train_saes\n")
-        if i == 0: # first iteration uses x_train
+        if i == 0:  # First iteration uses x_train as input
             ae_input = x_train
             last_ae = False
-            if i == (num_ae - 1): # if first ae is last ae
+            if i == (num_ae - 1):  # If the first autoencoder is also the last one
                 last_ae = True
-        elif i == (num_ae - 1):
+        elif i == (num_ae - 1):  # If the current autoencoder is the last one
             last_ae = True
         else:
             last_ae = False
 
+        # Get the autoencoder model
         ae = model.get_ae(ae_input, 12, hidden_sizes, last_ae)
-        ae.compile(loss="mse", optimizer="adam", metrics=['mape'])
-        ae.fit(ae_input, ae_input, batch_size=config["batch"], 
-                epochs=config["epochs"], validation_split=0.05)
+        ae.compile(loss="mse", optimizer="adam", metrics=['mape'])  # Compile the autoencoder model
         stack = ae.fit(ae_input, ae_input, batch_size=config["batch"], 
-                       epochs=config["epochs"], validation_split=0.05)
-        ae_input = ae.predict(ae_input)
+                       epochs=config["epochs"], validation_split=0.05)  # Train the autoencoder
+        ae_input = ae.predict(ae_input)  # Use the output of the current autoencoder as input for the next
 
-    
-    ae.summary()
+    ae.summary()  # Print the summary of the last autoencoder
 
-    saes.append(ae)
-    saes.append(stack)
+    saes.append(ae)  # Append the last autoencoder to the list
+    saes.append(stack)  # Append the last autoencoder trained to the list
 
+    # Train the final model using the trained autoencoders
     train_model(saes, x_train, y_train, name, config, scat_number, lane_number)
+
 
 
 def main(argv):
